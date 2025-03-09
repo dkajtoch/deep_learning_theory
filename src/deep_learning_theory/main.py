@@ -58,8 +58,4 @@ def main(cfg: DictConfig) -> None:
 
 
 if __name__ == "__main__":
-    import os
-
-    os.environ["WANDB_API_KEY"] = "d7bed431b3a08faa7c0b00389210a6f097953f22"
-
     main()
