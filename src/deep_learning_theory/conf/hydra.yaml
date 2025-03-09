@@ -1,0 +1,7 @@
+hydra:
+  run:
+    dir: ./outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  job:
+    env_set:
+      - WANDB_BASE_URL: https://api.wandb.ai
+      - WANDB_API_KEY: ""

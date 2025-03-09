@@ -1,0 +1,43 @@
+# @package _global_
+
+defaults:
+  - override /datamodule: cifar10.yaml
+  - override /backbone: resnet56.yaml
+  - override /optimizer: sgd.yaml
+  - override /lr_scheduler: 1cycle.yaml
+
+datamodule:
+  batch_size: 1000
+
+backbone:
+  num_classes: 10
+
+module:
+  lr_scheduler_interval: step
+
+optimizer:
+  weight_decay: 1.0e-04
+  nesterov: false
+
+lr_scheduler:
+  max_lr: 3.0
+  total_steps: ${trainer.max_steps}
+  pct_start: 0.5
+  anneal_strategy: linear
+  three_phase: true
+  final_div_factor: 1e1
+  div_factor: 30  # initial_lr=0.1
+  cycle_momentum: true
+  base_momentum: 0.85
+  max_momentum: 0.95
+
+trainer:
+  max_steps: 10_000
+  logger:
+    - _target_: lightning.pytorch.loggers.CSVLogger
+      save_dir: ${hydra:run.dir}
+      version: ''
+      name: logger
+    - _target_: lightning.pytorch.loggers.WandbLogger
+      project: deep-learning-theory
+      tags: ['super_convergence']

@@ -1,0 +1,36 @@
+# @package _global_
+
+defaults:
+  - override /datamodule: cifar10.yaml
+  - override /backbone: resnet56.yaml
+  - override /optimizer: sgd.yaml
+  - override /lr_scheduler: multi_step.yaml
+
+datamodule:
+  batch_size: 128
+
+backbone:
+  num_classes: 10
+
+module:
+  lr_scheduler_interval: step
+
+optimizer:
+  lr: 0.35
+  momentum: 0.9
+  weight_decay: 1.0e-04
+  nesterov: false
+
+lr_scheduler:
+  milestones: [50_000, 70_000]
+  gamma: 0.1
+
+trainer:
+  max_steps: 80_000
+  logger:
+    - _target_: lightning.pytorch.loggers.CSVLogger
+      save_dir: lightning_logs
+      name: super_convergence
+    - _target_: lightning.pytorch.loggers.WandbLogger
+      project: deep-learning-theory
+      tags: ['super_convergence']

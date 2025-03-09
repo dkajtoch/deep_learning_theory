@@ -1,0 +1,20 @@
+# @package _global_
+
+defaults:
+  - _self_
+  - optimizer: sgd
+  - lr_scheduler: multi_step
+  - backbone: resnet56
+  - datamodule: cifar10
+  - trainer.yaml
+  - hydra.yaml
+  - experiment: null
+
+seed: 42
+
+module:
+  _target_: deep_learning_theory.lightning_modules.VisionClassificationModule
+  backbone: ${backbone}
+  optimizer: ${optimizer}
+  lr_scheduler: ${lr_scheduler}
+  lr_scheduler_interval: step

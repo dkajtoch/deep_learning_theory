@@ -1,0 +1,2 @@
+_target_: deep_learning_theory.models.ResNet56
+num_classes: 10

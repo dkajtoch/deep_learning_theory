@@ -1,0 +1,12 @@
+_target_: torch.optim.lr_scheduler.OneCycleLR
+_partial_: true
+max_lr: 3.0
+total_steps: 10_000
+pct_start: 0.5
+anneal_strategy: linear
+three_phase: true
+final_div_factor: 1e1
+div_factor: 30  # initial_lr=0.1
+cycle_momentum: true
+base_momentum: 0.85
+max_momentum: 0.95

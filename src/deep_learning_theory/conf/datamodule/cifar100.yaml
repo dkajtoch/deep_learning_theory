@@ -1,0 +1,3 @@
+_target_: deep_learning_theory.datamodules.CIFAR100DataModule
+batch_size: 128
+normalize: true
