@@ -10,15 +10,8 @@ from deep_learning_theory.callbacks import GradientNormMonitor
 from deep_learning_theory.utils import flatten_dict
 
 # Models:
-# - MLP
 # - Linear network
 # - VGG
-#
-# Datasets
-# - CIFAR-10 5k subset
-#
-# Losess
-# - MSE
 
 
 def store_config_in_loggers(trainer: Trainer, cfg: DictConfig) -> None:
