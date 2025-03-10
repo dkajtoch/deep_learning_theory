@@ -1,1 +1,2 @@
 _target_: deep_learning_theory.models.init_normal
+_partial_: true
