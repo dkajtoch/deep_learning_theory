@@ -3,6 +3,31 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
+from torch import Tensor
+
+
+def init_lecun_normal(m, non_linearity="relu"):
+    # non_linearity="relu" is equivalent to LeCun init with a gain factor (√2).
+    # non_linearity="linear" is equivalent to LeCun init with a gain factor 1.
+    if isinstance(m, nn.Conv2d | nn.Linear):
+        nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity=non_linearity)
+    elif isinstance(m, nn.BatchNorm2d):
+        nn.init.constant_(m.weight, 1)
+        nn.init.constant_(m.bias, 0)
+
+    if hasattr(m, "bias") and m.bias is not None:
+        nn.init.constant_(m.bias, 0)
+
+
+def init_normal(m):
+    if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
+        nn.init.constant_(m.weight, 1)
+        nn.init.constant_(m.bias, 0)
+    else:
+        nn.init.normal_(m.weight, 0.0, 1.0)
+
+    if hasattr(m, "bias") and m.bias is not None:
+        nn.init.constant_(m.bias, 0)
 
 
 class ResNetStandardBlock(nn.Module):
@@ -117,19 +142,6 @@ class ResNet(nn.Module):
         )
         self.pooling = nn.AdaptiveAvgPool2d(1)
         self.linear = nn.Linear(num_channels[2], num_classes)
-
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="relu")
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="relu")
-                nn.init.constant_(m.bias, 0)
 
     @staticmethod
     def _make_block(in_channels, out_channels, num_blocks, use_downsample=False):
@@ -269,13 +281,15 @@ class WideResNet(nn.Module):
         self.linear = nn.Linear(num_channels[3], num_classes)
 
     def _make_block(self, in_channels, out_channels, num_blocks, stride):
-        strides = [stride] + [1] * (int(num_blocks) - 1)
-        layers = []
-
-        for stride in strides:
+        layers = [
+            WideBasicBlock(
+                in_channels, out_channels, dropout_p=self.dropout_p, stride=stride
+            )
+        ]
+        for _ in range(1, int(num_blocks)):
             layers.append(
                 WideBasicBlock(
-                    in_channels, out_channels, dropout_p=self.dropout_p, stride=stride
+                    out_channels, out_channels, dropout_p=self.dropout_p, stride=1
                 )
             )
         return nn.Sequential(*layers)
@@ -434,3 +448,86 @@ class DenseNet(nn.Module):
         out = self.fc(out)
 
         return out
+
+
+class NTKLinear(nn.Linear):
+    """Linear layer with NTK normalization.
+
+    See Also:
+        https://proceedings.neurips.cc/paper_files/paper/2018/file/5a4be1fa34e62bb8a6ec6b91d2462f5a-Paper.pdf
+    """
+
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        bias: bool = True,
+        beta: float = 1.0,
+        device=None,
+        dtype=None,
+    ) -> None:
+        super().__init__(in_features, out_features, bias, device, dtype)
+        self.register_buffer("ntk_scaling", torch.tensor(1.0 / in_features).sqrt())
+        self.register_buffer("beta", torch.tensor(beta))
+
+    def reset_parameters(self) -> None:
+        nn.init.normal_(self.weight, mean=0.0, std=1.0)
+        if self.bias is not None:
+            nn.init.zeros_(self.bias)
+
+    def forward(self, input: Tensor) -> Tensor:
+        return F.linear(input, self.weight * self.ntk_scaling, self.bias * self.beta)
+
+
+class FullyConnectedNet(nn.Module):
+    """Fully connected neural network."""
+
+    def __init__(
+        self,
+        input_dim: int,
+        num_classes: int,
+        hidden_sizes: list[int],
+        dropout_rate: float = 0,
+        use_batch_norm: bool = False,
+        use_ntk_normalization: bool = False,
+    ):
+        super().__init__()
+        self.input_dim = input_dim
+        self.num_classes = num_classes
+        self.hidden_sizes = hidden_sizes
+        self.act_fn = nn.ReLU()
+        self.dropout_rate = dropout_rate
+        self.use_batch_norm = use_batch_norm
+        self.use_ntk_normalization = use_ntk_normalization
+
+        self.fc_layers = nn.ModuleList(
+            [
+                self.build_fc_block(
+                    self.input_dim if i == 0 else self.hidden_sizes[i - 1],
+                    self.hidden_sizes[i],
+                )
+                for i in range(len(self.hidden_sizes))
+            ]
+        )
+        self.output_layer = nn.Linear(self.hidden_sizes[-1], self.num_classes)
+
+    def build_fc_block(self, in_features, out_features):
+        layers = []
+        if self.use_ntk_normalization:
+            layers.append(NTKLinear(in_features, out_features))
+        else:
+            layers.append(nn.Linear(in_features, out_features))
+
+        if self.use_batch_norm:
+            layers.append(nn.BatchNorm1d(out_features))
+        layers.append(self.act_fn)
+        if self.dropout_rate > 0:
+            layers.append(nn.Dropout(self.dropout_rate))
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        x = x.view(x.size(0), -1)
+        for layer in self.fc_layers:
+            x = layer(x)
+        x = self.output_layer(x)
+        return x

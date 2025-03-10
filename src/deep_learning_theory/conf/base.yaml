@@ -3,6 +3,8 @@
 defaults:
   - _self_
   - optimizer: sgd
+  - weight_init_fn: lecun_normal
+  - loss: cross_entropy
   - lr_scheduler: multi_step
   - backbone: resnet56
   - datamodule: cifar10
@@ -15,6 +17,9 @@ seed: 42
 module:
   _target_: deep_learning_theory.lightning_modules.VisionClassificationModule
   backbone: ${backbone}
+  weight_init_fn: ${weight_init_fn}
+  loss: ${loss}
   optimizer: ${optimizer}
   lr_scheduler: ${lr_scheduler}
   lr_scheduler_interval: step
+  torch_compile: true

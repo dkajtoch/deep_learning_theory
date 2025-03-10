@@ -40,7 +40,7 @@ class GradientNormMonitor(Callback):
 
     @staticmethod
     def gather_grad_norms(module: nn.Module) -> float:
-        total_norm = torch.tensor(0.0, device=module.device)
+        total_norm = torch.tensor(0.0, device=module.device, requires_grad=False)
         for param in module.parameters():
             if param.grad is not None:
                 param_norm = param.grad.detach().data.norm(2)

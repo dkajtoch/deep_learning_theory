@@ -2,7 +2,6 @@ import functools
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor
@@ -16,20 +15,27 @@ class VisionClassificationModule(LightningModule):
     def __init__(
         self,
         backbone: nn.Module,
+        weight_init_fn: functools.partial,
+        loss: nn.Module,
         optimizer: functools.partial,
         lr_scheduler: functools.partial,
         lr_scheduler_interval: str = "step",
+        torch_compile: bool = True,
     ) -> None:
         super().__init__()
         self.backbone = backbone
+        self.backbone.apply(weight_init_fn)
+        self.loss = loss
         self._partial_optimizer = optimizer
         self._partial_lr_scheduler = lr_scheduler
         self._lr_scheduler_interval = lr_scheduler_interval
+        self.torch_compile = torch_compile
 
     def configure_model(self) -> None:
         # Torch compile influences reproducibility. Use either
         # compiled or non-compiled model.
-        self.backbone = torch.compile(self.backbone)  # type: ignore[assignment]
+        if self.torch_compile:
+            self.backbone = torch.compile(self.backbone)  # type: ignore[assignment]
 
     def _attach_metrics(self) -> None:
         assert hasattr(self.trainer, "datamodule")
@@ -47,7 +53,7 @@ class VisionClassificationModule(LightningModule):
     def training_step(self, batch, batch_idx):
         images, labels = batch
         logits = self(images)
-        loss = F.cross_entropy(logits, labels)
+        loss = self.loss(logits, labels)
         self.log("train/loss", loss)
 
         self.train_acc(logits, labels)
@@ -57,7 +63,7 @@ class VisionClassificationModule(LightningModule):
     def validation_step(self, batch, batch_idx):
         images, labels = batch
         logits = self(images)
-        loss = F.cross_entropy(logits, labels)
+        loss = self.loss(logits, labels)
         self.log("val/loss", loss, on_epoch=True, on_step=True)
 
         self.valid_acc(logits, labels)

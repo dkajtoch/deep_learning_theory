@@ -2,9 +2,11 @@ import os
 from collections.abc import Callable
 from typing import Any
 
+import numpy as np
 import torchvision.transforms as transform_lib
 from lightning import LightningDataModule
-from torch.utils.data import DataLoader, Dataset
+from torch import Tensor
+from torch.utils.data import DataLoader, Dataset, IterableDataset, Subset
 from torchvision.datasets import CIFAR10, CIFAR100, MNIST, ImageNet
 
 
@@ -25,6 +27,7 @@ class VisionDataModule(LightningDataModule):
         drop_last: bool = False,
         train_transform: Callable | None = None,
         val_transform: Callable | None = None,
+        num_samples: int | None = None,
     ) -> None:
         super().__init__()
         self.train_transform = train_transform
@@ -36,6 +39,11 @@ class VisionDataModule(LightningDataModule):
         self.shuffle = shuffle
         self.pin_memory = pin_memory
         self.drop_last = drop_last
+        self.num_samples = num_samples
+
+    @property
+    def num_classes(self):
+        raise NotImplementedError
 
     def prepare_data(self, *args: Any, **kwargs: Any) -> None:
         """Saves files to data_dir."""
@@ -45,11 +53,17 @@ class VisionDataModule(LightningDataModule):
     def setup(self, stage: str | None = None) -> None:
         """Creates train, val, and test dataset."""
         if stage == "fit" or stage is None:
-            self.dataset_train = self.dataset_cls(
+            dataset_train = self.dataset_cls(
                 self.data_dir,
                 train=True,
                 transform=self.train_transform,
             )
+            if self.num_samples is not None:
+                indices = self._create_balanced_sample(
+                    dataset_train, self.num_samples, self.num_classes
+                )
+                self.dataset_train = Subset(dataset_train, indices)
+
             self.dataset_val = self.dataset_cls(
                 self.data_dir,
                 train=False,
@@ -75,6 +89,40 @@ class VisionDataModule(LightningDataModule):
             drop_last=self.drop_last,
             pin_memory=self.pin_memory,
         )
+
+    @staticmethod
+    def _create_balanced_sample(
+        dataset: IterableDataset, num_samples: int, num_classes: int
+    ) -> list[int]:
+        rng = np.random.RandomState(42)
+
+        samples_per_class = num_samples // num_classes
+        remainder = num_samples % num_classes
+
+        target_counts = [samples_per_class] * num_classes
+
+        for i in range(remainder):
+            target_counts[i] += 1
+
+        class_indices: list[list[int]] = [[] for _ in range(num_classes)]
+
+        for idx, (_, label) in enumerate(dataset):
+            if isinstance(label, Tensor):
+                label = label.item()
+            class_indices[label].append(idx)
+
+        selected_indices: list[int] = []
+        for class_idx, target_count in enumerate(target_counts):
+            available_count = len(class_indices[class_idx])
+            count_to_sample = min(target_count, available_count)
+
+            sampled_indices = rng.choice(
+                class_indices[class_idx], size=count_to_sample, replace=False
+            ).tolist()
+
+            selected_indices.extend(sampled_indices)  # type: ignore[assignment,arg-type]
+        rng.shuffle(selected_indices)
+        return selected_indices
 
 
 class CIFAR10DataModule(VisionDataModule):
@@ -189,6 +237,11 @@ class MNISTDataModule(VisionDataModule):
     @staticmethod
     def default_normalization() -> Callable:
         transform: Callable = transform_lib.Normalize(mean=(0.5,), std=(0.5,))
+        return transform
+
+    @staticmethod
+    def standard_normalization() -> Callable:
+        transform: Callable = transform_lib.Normalize(mean=(0.1307,), std=(0.3081,))
         return transform
 
 

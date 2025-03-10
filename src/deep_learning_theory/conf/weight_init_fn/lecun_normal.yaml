@@ -1,0 +1,3 @@
+_target_: deep_learning_theory.models.init_lecun_normal
+_partial_: true
+non_linearity: relu

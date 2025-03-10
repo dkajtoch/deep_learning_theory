@@ -1,0 +1,7 @@
+_target_: deep_learning_theory.models.FullyConnectedNet
+input_dim: 784
+num_classes: 10
+hidden_sizes: [2048,2048,2048]
+dropout_rate: 0.0
+use_batch_norm: false
+use_ntk_normalization: false

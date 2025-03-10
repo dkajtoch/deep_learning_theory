@@ -1,0 +1,5 @@
+_target_: deep_learning_theory.models.WideResNet
+depth: 28
+widen_factor: 10
+dropout_p: 0.0
+num_classes: 10

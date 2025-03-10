@@ -58,4 +58,6 @@ def main(cfg: DictConfig) -> None:
 
 
 if __name__ == "__main__":
+    # Activate tensor cores on GPUS > P100.
+    torch.set_float32_matmul_precision("high")
     main()

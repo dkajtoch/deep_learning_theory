@@ -1,0 +1,44 @@
+# @package _global_
+
+defaults:
+  - override /datamodule: mnist.yaml
+  - override /backbone: fc.yaml
+  - override /weight_init_fn: normal.yaml
+  - override /loss: catapult_mse.yaml
+  - override /optimizer: sgd.yaml
+  - override /lr_scheduler: constant.yaml
+
+datamodule:
+  batch_size: 512
+  num_samples: 512
+
+backbone:
+  input_dim: 784
+  hidden_sizes: [2048]
+  num_classes: 10
+  use_ntk_normalization: true
+
+module:
+  lr_scheduler_interval: step
+  torch_compile: true
+
+optimizer:
+  lr: 0.25
+  momentum: 0.0
+  weight_decay: 0.0
+  nesterov: false
+
+lr_scheduler:
+  total_iters: ${trainer.max_steps}
+
+trainer:
+  # Needs to be set to 1. Otherwise, we are not going to see the catapult.
+  log_every_n_steps: 1
+  max_steps: 70_000
+  logger:
+    - _target_: lightning.pytorch.loggers.CSVLogger
+      save_dir: lightning_logs
+      name: super_convergence
+    - _target_: lightning.pytorch.loggers.WandbLogger
+      project: deep-learning-theory
+      tags: ['catapult']
