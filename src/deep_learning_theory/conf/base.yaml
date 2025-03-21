@@ -14,6 +14,8 @@ defaults:
 
 seed: 42
 
+ckpt_every_n_train_steps: 1000
+
 module:
   _target_: deep_learning_theory.lightning_modules.VisionClassificationModule
   backbone: ${backbone}

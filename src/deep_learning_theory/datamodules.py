@@ -6,7 +6,7 @@ import numpy as np
 import torchvision.transforms as transform_lib
 from lightning import LightningDataModule
 from torch import Tensor
-from torch.utils.data import DataLoader, Dataset, IterableDataset, Subset
+from torch.utils.data import DataLoader, Dataset, Subset
 from torchvision.datasets import CIFAR10, CIFAR100, MNIST, ImageNet
 
 
@@ -53,16 +53,16 @@ class VisionDataModule(LightningDataModule):
     def setup(self, stage: str | None = None) -> None:
         """Creates train, val, and test dataset."""
         if stage == "fit" or stage is None:
-            dataset_train = self.dataset_cls(
+            self.dataset_train = self.dataset_cls(
                 self.data_dir,
                 train=True,
                 transform=self.train_transform,
             )
             if self.num_samples is not None:
                 indices = self._create_balanced_sample(
-                    dataset_train, self.num_samples, self.num_classes
+                    self.dataset_train, self.num_samples, self.num_classes
                 )
-                self.dataset_train = Subset(dataset_train, indices)
+                self.dataset_train = Subset(self.dataset_train, indices)
 
             self.dataset_val = self.dataset_cls(
                 self.data_dir,
@@ -92,7 +92,7 @@ class VisionDataModule(LightningDataModule):
 
     @staticmethod
     def _create_balanced_sample(
-        dataset: IterableDataset, num_samples: int, num_classes: int
+        dataset: Dataset, num_samples: int, num_classes: int
     ) -> list[int]:
         rng = np.random.RandomState(42)
 
@@ -106,7 +106,8 @@ class VisionDataModule(LightningDataModule):
 
         class_indices: list[list[int]] = [[] for _ in range(num_classes)]
 
-        for idx, (_, label) in enumerate(dataset):
+        for idx in range(len(dataset)):  # type: ignore[arg-type]
+            _, label = dataset[idx]
             if isinstance(label, Tensor):
                 label = label.item()
             class_indices[label].append(idx)

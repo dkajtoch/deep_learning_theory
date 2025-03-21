@@ -24,7 +24,8 @@ def init_normal(m):
         nn.init.constant_(m.weight, 1)
         nn.init.constant_(m.bias, 0)
     else:
-        nn.init.normal_(m.weight, 0.0, 1.0)
+        if hasattr(m, "weight"):
+            nn.init.normal_(m.weight, 0.0, 1.0)
 
     if hasattr(m, "bias") and m.bias is not None:
         nn.init.constant_(m.bias, 0)

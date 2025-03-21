@@ -20,10 +20,10 @@ backbone:
 
 module:
   lr_scheduler_interval: step
-  torch_compile: true
+  torch_compile: false
 
 optimizer:
-  lr: 0.25
+  lr: 0.2
   momentum: 0.0
   weight_decay: 0.0
   nesterov: false
@@ -31,10 +31,12 @@ optimizer:
 lr_scheduler:
   total_iters: ${trainer.max_steps}
 
+ckpt_every_n_train_steps: ${trainer.log_every_n_steps}
+
 trainer:
   # Needs to be set to 1. Otherwise, we are not going to see the catapult.
   log_every_n_steps: 1
-  max_steps: 70_000
+  max_steps: 20
   logger:
     - _target_: lightning.pytorch.loggers.CSVLogger
       save_dir: lightning_logs
